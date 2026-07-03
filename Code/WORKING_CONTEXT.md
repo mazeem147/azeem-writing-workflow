@@ -54,10 +54,31 @@ Or via Claude Code preview: server named "Writing Workflow" on port 8502 (config
 
 ---
 
+---
+
+### Issue 03 — Develop stage ✅
+
+**Files changed:**
+- `pages/develop.py` — full implementation: two-column layout, Seeder Question on entry, iterative Q&A loop, "Build the Plan →" navigation
+
+**Key decisions:**
+- Split-panel: transcript (left, read-only, scrollable) | conversation (right)
+- Seeder Question generated on first entry via `anthropic/claude-sonnet-4-5` through OpenRouter — prompt instructs Claude to find a specific claim or gap, never ask generically
+- Follow-up questions use full conversation history passed as `messages` array (system + transcript + prior turns)
+- All conversation turns stored as `{"role": "ai"|"user", "text": str}` dicts in `st.session_state.conversation`
+- "Build the Plan →" saves `st.session_state.brain_dump = list(st.session_state.conversation)` before switching pages
+- Guard at top: if `st.session_state.transcript` is absent, shows error + back button + `st.stop()`
+- `ai_text` initialized to `None` before try block; append guarded with `if ai_text` to prevent `UnboundLocalError` if `st.stop()` is swallowed
+- `PALETTE` has no `"sidebar"` key — use `"#1a1826"` directly
+
+**Session state consumed:** `st.session_state.transcript` (set by Transcribe stage)  
+**Session state produced:** `st.session_state.brain_dump` (consumed by Plan stage)
+
+---
+
 ## What's next
 
 Issues still to implement (in order):
-- `03-develop-stage.md` — Seeder Questions, multi-turn conversation, Brain Dump accumulation
 - `04-voice-input.md` — mic button on every text input, Whisper insertion
 - `05-plan-stage.md` — Writing Plan extraction, ChromaDB retrieval (Content Notes + Style Notes)
 - `06-draft-stage.md` — section-by-section draft generation, Style Fingerprint, section revision modal
