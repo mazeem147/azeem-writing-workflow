@@ -16,6 +16,7 @@ Usage:
 """
 
 import hashlib
+import httpx
 import io
 import os
 
@@ -59,13 +60,52 @@ def _transcribe_and_store(audio_bytes: bytes, draft_key: str) -> None:
     buf.name = "recording.wav"
     with st.spinner("Transcribing..."):
         try:
-            result = client.audio.translations.create(
+            result = client.audio.transcriptions.create(
                 model="whisper-1",
                 file=buf,
-                # translations endpoint always outputs English regardless of
-                # input language — handles Urdu/English code-switching correctly
             )
-            st.session_state[draft_key] = result.text.strip()
+            raw = result.text.strip()
+            romanised = _romanise(raw)
+            st.session_state[draft_key] = romanised
         except Exception as e:
             st.error("Transcription failed: " + str(e))
     st.rerun()
+
+
+def _romanise(text: str) -> str:
+    """
+    If Whisper returned any non-Latin script (Urdu/Arabic characters), run a
+    fast Claude pass that romanises those words into Latin script without
+    translating them. Pure-English text is returned immediately, no API call.
+    """
+    if all(ord(c) < 128 for c in text):
+        return text
+
+    system = (
+        "You are fixing a voice transcript for an English/Urdu bilingual speaker. "
+        "The transcript may contain Urdu words written in Urdu/Arabic script. "
+        "Romanise every non-Latin word into its Latin phonetic form — do NOT translate. "
+        "For example: یار → yaar, مقصد → maqsad, بھائی → bhai. "
+        "Keep all English words exactly as they are. "
+        "Return only the corrected transcript. No preamble, no explanation."
+    )
+    try:
+        resp = httpx.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": "Bearer " + os.environ["OPENROUTER_API_KEY"],
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "anthropic/claude-haiku-4-5",
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": text},
+                ],
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"].strip()
+    except Exception:
+        return text  # fall back to raw Whisper output rather than failing
