@@ -18,7 +18,7 @@ def _transcribe_audio(file_bytes, filename):
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     f = io.BytesIO(file_bytes)
     f.name = filename
-    result = client.audio.transcriptions.create(model="whisper-1", file=f)
+    result = client.audio.translations.create(model="whisper-1", file=f)
     return result.text
 
 
@@ -26,16 +26,11 @@ def _clean_transcript(raw):
     import httpx
     key = os.environ["OPENROUTER_API_KEY"]
     system = (
-        "You are cleaning a voice memo transcript for an English/Urdu bilingual speaker "
-        "who code-switches freely between the two languages. "
-        "Rules:\n"
-        "1. The entire output must use only Latin (English) script — no Urdu/Arabic characters.\n"
-        "2. Any Urdu words must be romanised (written in Latin letters as they sound), "
-        "not translated into English. Preserve the Urdu word; just write it in Latin script. "
-        "For example: یار → yaar, مقصد → maqsad, بھائی → bhai.\n"
-        "3. Fix obvious transcription errors and normalise romanisation where you are confident.\n"
-        "4. For any word you are NOT confident about — garbled audio, ambiguous pronunciation, "
-        "or likely mishearing — wrap it as [word?], keeping your best guess inside the brackets.\n"
+        "You are cleaning a voice memo transcript for an English/Urdu bilingual speaker. "
+        "The transcript has already been translated into English by Whisper. "
+        "Fix obvious transcription or translation errors. "
+        "For any word you are NOT confident about — garbled audio, ambiguous pronunciation, "
+        "or likely mishearing — wrap it as [word?], keeping your best guess inside the brackets. "
         "Return only the corrected transcript text. No preamble, no explanation."
     )
     resp = httpx.post(
