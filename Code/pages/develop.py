@@ -3,6 +3,7 @@ import html as _html
 import httpx
 import streamlit as st
 from ui import inject_css, render_sidebar, render_page_header, PALETTE
+from components.voice_input import voice_input_widget
 
 inject_css()
 render_sidebar("develop")
@@ -27,6 +28,8 @@ if "seeder_requested" not in st.session_state:
     st.session_state.seeder_requested = False
 if "awaiting_ai" not in st.session_state:
     st.session_state.awaiting_ai = False
+if "develop_response" not in st.session_state:
+    st.session_state.develop_response = ""
 
 
 # ── LLM helper ────────────────────────────────────────────────────────────────
@@ -179,21 +182,36 @@ with col_right:
 
     # ── User input ────────────────────────────────────────────────────────────
     if conversation:  # only show input once first question is rendered
-        with st.form(key="user_input_form", clear_on_submit=True):
-            user_text = st.text_area(
-                "Your response",
-                placeholder="Type your answer here...",
-                height=100,
-                label_visibility="collapsed",
+        # Mic button row — sits above the text area, right-aligned
+        mic_row = st.columns([8, 1])
+        with mic_row[0]:
+            st.markdown(
+                "<p style='color:" + PALETTE["muted"] + ";font-size:0.78rem;"
+                "margin:0 0 2px'>Your response</p>",
+                unsafe_allow_html=True,
             )
-            submitted = st.form_submit_button("Send →")
+        with mic_row[1]:
+            voice_input_widget("develop_response")
 
-        if submitted and user_text.strip():
-            st.session_state.conversation.append(
-                {"role": "user", "text": user_text.strip()}
-            )
-            st.session_state.awaiting_ai = True
-            st.rerun()
+        # key= matches widget_key passed to voice_input_widget so Whisper
+        # output is injected directly into this widget's session state.
+        user_text = st.text_area(
+            "Your response",
+            placeholder="Type your answer, or click the mic to speak...",
+            height=100,
+            label_visibility="collapsed",
+            key="develop_response",
+        )
+
+        if st.button("Send →", type="primary"):
+            text_to_send = user_text.strip()
+            if text_to_send:
+                st.session_state.conversation.append(
+                    {"role": "user", "text": text_to_send}
+                )
+                st.session_state.develop_response = ""
+                st.session_state.awaiting_ai = True
+                st.rerun()
 
 # ── "Build the Plan" button — always visible ──────────────────────────────────
 st.markdown("---")
