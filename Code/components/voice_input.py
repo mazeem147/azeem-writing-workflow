@@ -59,10 +59,11 @@ def _transcribe_and_store(audio_bytes: bytes, draft_key: str) -> None:
     buf.name = "recording.wav"
     with st.spinner("Transcribing..."):
         try:
-            result = client.audio.transcriptions.create(
+            result = client.audio.translations.create(
                 model="whisper-1",
                 file=buf,
-                # No language specified — Whisper auto-detects Urdu/English mix
+                # translations endpoint always outputs English regardless of
+                # input language — handles Urdu/English code-switching correctly
             )
             st.session_state[draft_key] = result.text.strip()
         except Exception as e:

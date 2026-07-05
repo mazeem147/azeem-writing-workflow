@@ -18,7 +18,7 @@ def _transcribe_audio(file_bytes, filename):
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     f = io.BytesIO(file_bytes)
     f.name = filename
-    result = client.audio.transcriptions.create(model="whisper-1", file=f)
+    result = client.audio.translations.create(model="whisper-1", file=f)
     return result.text
 
 
