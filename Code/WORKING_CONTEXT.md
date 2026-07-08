@@ -76,11 +76,56 @@ Or via Claude Code preview: server named "Writing Workflow" on port 8502 (config
 
 ---
 
+---
+
+### Issue 04 — Voice input component ✅
+
+**Files created/changed:**
+- `components/__init__.py` — package init
+- `components/voice_input.py` — `voice_input_widget(widget_key)`: renders a mic button via `audio-recorder-streamlit`; on stop, sends WAV to Whisper, writes transcription into `st.session_state[widget_key]` (same key as paired `st.text_area`), reruns
+- `pages/develop.py` — replaced `st.form` (incompatible with reactive audio recorder) with bare widgets; added `voice_input_widget("develop_response")` above the response text area; `key="develop_response"` on text_area so transcription is injected correctly; clears key on submit
+- `requirements.txt` — added `audio-recorder-streamlit>=0.0.10`
+
+**Key decisions:**
+- `widget_key` passed to `voice_input_widget` must match the `key=` of the associated `st.text_area` — writing directly to the widget's session state key is the only way to inject text that survives Streamlit reruns (using `value=` on a keyed widget only sets the default on first mount)
+- MD5 hash of audio bytes used to avoid re-transcribing on every rerun (component returns same bytes until next recording)
+- No language specified in Whisper call — auto-detects Urdu/English code-switching
+
+**Where to drop the component in future stages:**
+- Draft revision modal (Issue 06): call `voice_input_widget("revision_feedback")`, pair with `st.text_area(..., key="revision_feedback")`
+
+---
+
+### Issue 05 — Plan stage ✅
+
+**Files changed:**
+- `pages/plan.py` — full implementation
+- `requirements.txt` — added `chromadb>=0.5.0`, `sentence-transformers>=2.7.0`
+
+**Key decisions:**
+- ChromaDB path resolved via `__file__` walk: `pages/ → Code/ → Writing Workflow/ → Claude Code (Personal)/` then into `Notion Second Brain (Code)/data/chroma/` — sibling directory, no hardcoded paths
+- `@st.cache_resource` on `_load_embed_model()` and `_load_chroma()` — model and collection loaded once per Streamlit process, not per rerun
+- Writing Plan extracted as JSON by Claude (claude-sonnet-4-5 via OpenRouter); code-fence stripping + regex fallback for malformed JSON
+- Content Notes: one ChromaDB query per section (top 5), using section title + bullets as query text; stored in `st.session_state.content_notes` keyed by `str(section_idx)`
+- Style Notes: single fixed-phrase query ("personal reflection opinion I believe..."); top 10 results stored in `st.session_state.style_notes` for Draft stage Style Fingerprint extraction
+- Section manipulation helpers (`_swap_sections`, `_delete_section`, `_add_section`) re-index `content_notes`, `pinned_notes`, `section_expanded` consistently on every structural change
+- `section_expanded` uses **int** keys; `content_notes` and `pinned_notes` use **str** keys — consistent throughout
+- Pin state stored as `list[int]` (indices into the section's content_notes list) in `st.session_state.pinned_notes`
+- "Generate Draft →" embeds pinned note texts into each section's `pinned_notes` field before navigating to draft.py
+- Selectbox `key="notes_section_view"` is clamped to valid range before render to prevent `StreamlitAPIException` after section deletion
+
+**Bugs caught in code review:**
+- `plan_data` initialized to `None` before try block — same pattern as `ai_text` in develop.py — prevents `UnboundLocalError` if `st.stop()` is swallowed
+- Selectbox index clamped before render: `st.session_state["notes_section_view"] = min(stored, len(plan)-1)` after any deletion
+
+**Session state consumed:** `st.session_state.brain_dump` (from Develop stage)
+**Session state produced:** `st.session_state.writing_plan` (list of `{"title", "bullets", "pinned_notes"}`), `st.session_state.content_notes`, `st.session_state.style_notes`
+
+---
+
 ## What's next
 
 Issues still to implement (in order):
-- `04-voice-input.md` — mic button on every text input, Whisper insertion
-- `05-plan-stage.md` — Writing Plan extraction, ChromaDB retrieval (Content Notes + Style Notes)
 - `06-draft-stage.md` — section-by-section draft generation, Style Fingerprint, section revision modal
 - `07-repurposed-content.md` — Tweet Thread + LinkedIn Post generation
 - `08-publish-stage.md` — Substack URL input, index into `published_articles` ChromaDB collection
