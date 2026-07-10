@@ -123,9 +123,58 @@ Or via Claude Code preview: server named "Writing Workflow" on port 8502 (config
 
 ---
 
+---
+
+### Issue 06 — Draft stage ✅
+
+**Files changed:**
+- `pages/draft.py` — full implementation: Style Fingerprint extraction, sequential section-by-section generation, section card renderer, inline revision form with mic input, "Approve Draft →" navigation
+
+**Key decisions:**
+- Style Fingerprint extracted via a single Claude call over `style_notes` before generation begins; stored in `st.session_state.style_fingerprint`. If no style_notes available, fingerprint is `""` and generation proceeds without it.
+- SKILL.md (Voice rules) read at module load time from `../../../skills/writing-voice/SKILL.md` relative to `Code/pages/`; included verbatim in every section generation prompt.
+- Section generation is sequential: on each rerun, already-completed sections are rendered, then the next section is generated and appended to `draft_sections`, then `st.rerun()`. Produces progressive "section appears" UX.
+- Revision uses an **inline form** (not `@st.dialog`) because `voice_input_widget` calls `st.rerun()` internally after transcription; inside a `@st.dialog` this closes the modal before the user can see the transcribed text. The inline form persists across reruns via `st.session_state.modal_section_idx`.
+- `modal_section_idx` tracks which section's revision form is open (int or None). Clicking "Revise ✦" sets it; "Cancel" or "Regenerate" clears it to None.
+- Only one revision form open at a time (single `modal_section_idx`). Form is rendered inline below the section card.
+- `revision_feedback` key shared between `voice_input_widget` and `st.text_area` — same pattern as `develop_response` in develop.py.
+- Section generation prompt includes: section title + bullets, position hint (opening/middle/closing), Style Fingerprint, Voice Rules, pinned Content Notes, optional revision feedback. Model: `anthropic/claude-sonnet-4-5` via OpenRouter.
+- Paragraph breaks in generated text rendered as `<p>` tags (double-newline → `</p><p>` replacement on HTML-escaped text).
+- "Approve Draft →" navigates to `pages/publish.py` (placeholder until Issue 08).
+
+**Session state consumed:** `st.session_state.writing_plan`, `st.session_state.style_notes`
+**Session state produced:** `st.session_state.style_fingerprint` (str), `st.session_state.draft_sections` (list[str])
+
+---
+
+---
+
+### Issue 07 — Repurposed Content ✅
+
+**Files created/changed:**
+- `pages/repurpose.py` — new page: guard, Tweet Thread generation, LinkedIn Post generation, tabs UI, regenerate buttons, "Mark as Published →" navigation
+- `app.py` — added `pages/repurpose.py` to `st.navigation()` pages list
+- `pages/draft.py` — "Approve Draft →" now navigates to `pages/repurpose.py` (was `pages/publish.py`)
+
+**Key decisions:**
+- Repurposed Content is not a separate sidebar stage — `render_sidebar("publish")` used, so Draft shows ✓ and Publish shows ● while on this page
+- Tweet Thread generated as JSON array via a single Claude call (claude-sonnet-4-5 via OpenRouter); code-fence stripping + `json.loads` fallback to line-split if malformed
+- LinkedIn Post generated via a separate Claude call; returns plain text
+- Both generation calls happen sequentially on page load (tweet thread first, then LinkedIn post), each with its own `st.spinner`; `st.rerun()` after each to update state before proceeding
+- Display uses `st.tabs(["🐦 Tweet Thread", "💼 LinkedIn Post"])` — tabs keep the screen uncluttered
+- Each tweet displayed with `st.code(tweet, language=None)` — built-in copy button, no extra JS
+- Character count shown per tweet (gold if ≤280, red `#e05252` if over)
+- LinkedIn Post displayed with `st.code(post, language=None)` — single copyable block
+- Regenerate buttons (`↺ Regenerate Thread`, `↺ Regenerate Post`) set the relevant session key to `None` and rerun; the generation phase picks them up
+- Only one regeneration at a time (independent keys: `tweet_thread`, `linkedin_post`)
+- "Mark as Published →" navigates to `pages/publish.py`
+
+**Session state consumed:** `st.session_state.draft_sections` (from Draft stage)
+**Session state produced:** `st.session_state.tweet_thread` (list[str], 8-12 tweets), `st.session_state.linkedin_post` (str)
+
+---
+
 ## What's next
 
 Issues still to implement (in order):
-- `06-draft-stage.md` — section-by-section draft generation, Style Fingerprint, section revision modal
-- `07-repurposed-content.md` — Tweet Thread + LinkedIn Post generation
 - `08-publish-stage.md` — Substack URL input, index into `published_articles` ChromaDB collection

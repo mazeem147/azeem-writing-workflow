@@ -12,11 +12,12 @@ st.set_page_config(
 )
 
 pages = [
-    st.Page("pages/transcribe.py", title="Transcribe", icon="🎙"),
-    st.Page("pages/develop.py",    title="Develop",    icon="💬"),
-    st.Page("pages/plan.py",       title="Plan",       icon="📋"),
-    st.Page("pages/draft.py",      title="Draft",      icon="✍️"),
-    st.Page("pages/publish.py",    title="Publish",    icon="🚀"),
+    st.Page("pages/transcribe.py", title="Transcribe",         icon="🎙"),
+    st.Page("pages/develop.py",    title="Develop",            icon="💬"),
+    st.Page("pages/plan.py",       title="Plan",               icon="📋"),
+    st.Page("pages/draft.py",      title="Draft",              icon="✍️"),
+    st.Page("pages/repurpose.py",  title="Repurposed Content", icon="🔁"),
+    st.Page("pages/publish.py",    title="Publish",            icon="🚀"),
 ]
 
 pg = st.navigation(pages, position="hidden")

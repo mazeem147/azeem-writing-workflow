@@ -11,6 +11,7 @@ PALETTE = {
     "muted":     "#9b9690",
     "done":      "#4a9e6b",
     "border":    "#2e2c3a",
+    "error":     "#e05252",
 }
 
 _p = PALETTE  # alias for brevity in the CSS block below
