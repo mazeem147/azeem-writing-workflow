@@ -174,7 +174,33 @@ Or via Claude Code preview: server named "Writing Workflow" on port 8502 (config
 
 ---
 
+---
+
+### Issue 08 — Publish stage ✅
+
+**Files changed:**
+- `pages/publish.py` — full implementation: approval checklist, Substack URL input, chunk + upsert into `published_articles` ChromaDB collection, confirmation screen, session-state clear
+
+**Key decisions:**
+- ChromaDB path resolved via the same `__file__` walk as `plan.py` — no hardcoded paths
+- `_load_published_collection()` uses `get_or_create_collection("published_articles", metadata={"hnsw:space": "cosine"})` — a **separate** collection; the Notion notes collection (`second_brain`) is never opened for writing here (verified: count 1610 unchanged across a publish)
+- Chunking logic (`_chunk_text`, 350 words / 50 overlap) is copied verbatim from `Notion Second Brain (Code)/embed_utils.py` rather than imported (sibling dir not on `sys.path`; `plan.py` set the precedent of replicating Chroma helpers locally)
+- Embedding model: `all-MiniLM-L6-v2` via `@st.cache_resource` — same as `plan.py`, so `published_articles` and the notes collection are query-compatible in one retrieval call
+- Chunk IDs: `md5(url)[:12] + "__chunk" + i` — idempotent per URL (re-publishing the same URL overwrites, never duplicates; verified)
+- Chunk metadata: `{"url", "published_date" (today, ISO), "title" (working_title), "chunk_index"}`
+- Article text indexed = `working_title + "\n\n" + "\n\n".join(draft_sections)` so the title is retrievable
+- **Confirmation before clear**: on success, details are stashed in `st.session_state.publish_confirmation` (a dict, NOT in the clear list); the confirmation screen renders from it. Piece state is cleared *immediately* after indexing, but the confirmation survives because it lives in its own key
+- **Render order** (matters): confirmation block → guard on `draft_sections` → checklist/input. The confirmation block `st.stop()`s first, so it renders even though `draft_sections` was just cleared
+- Checklist (4 rows): Draft approved (`draft_approved`), Tweet Thread ready (`tweet_thread`), LinkedIn Post ready (`linkedin_post`), Substack URL provided (live — `url` starts with `http://`/`https://`)
+- Publish button gated on all four being true (`can_publish`)
+- "Start a New Piece →" clears `publish_confirmation` + `substack_url` and switches to `transcribe.py`
+- User-supplied URL + title escaped with `html.escape` in all `unsafe_allow_html` blocks
+
+**Session state consumed:** `draft_sections`, `draft_approved`, `tweet_thread`, `linkedin_post`, `working_title`
+**Session state produced:** `publish_confirmation` (transient, cleared on new piece); all piece keys cleared on success
+
+---
+
 ## What's next
 
-Issues still to implement (in order):
-- `08-publish-stage.md` — Substack URL input, index into `published_articles` ChromaDB collection
+All 8 issues implemented. Workflow is feature-complete end to end (Transcribe → Develop → Plan → Draft → Repurpose → Publish).
