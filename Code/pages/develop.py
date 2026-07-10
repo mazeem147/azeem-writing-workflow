@@ -88,6 +88,23 @@ def _followup_messages(transcript, conversation):
     )
 
 
+# ── Send handler ──────────────────────────────────────────────────────────────
+def _submit_develop_response():
+    """on_click callback for the Send button.
+
+    Callbacks run BEFORE widgets are instantiated on the resulting rerun, so
+    resetting the develop_response widget key here is legal. Doing the same
+    reset inside the button's if-block (after st.text_area has already been
+    created this run) is what raised StreamlitAPIException.
+    """
+    text_to_send = st.session_state.develop_response.strip()
+    if not text_to_send:
+        return
+    st.session_state.conversation.append({"role": "user", "text": text_to_send})
+    st.session_state.develop_response = ""
+    st.session_state.awaiting_ai = True
+
+
 # ── Trigger seeder question on first entry ────────────────────────────────────
 if not st.session_state.seeder_requested:
     st.session_state.seeder_requested = True
@@ -195,7 +212,7 @@ with col_right:
 
         # key= matches widget_key passed to voice_input_widget so Whisper
         # output is injected directly into this widget's session state.
-        user_text = st.text_area(
+        st.text_area(
             "Your response",
             placeholder="Type your answer, or click the mic to speak...",
             height=100,
@@ -203,15 +220,9 @@ with col_right:
             key="develop_response",
         )
 
-        if st.button("Send →", type="primary"):
-            text_to_send = user_text.strip()
-            if text_to_send:
-                st.session_state.conversation.append(
-                    {"role": "user", "text": text_to_send}
-                )
-                st.session_state.develop_response = ""
-                st.session_state.awaiting_ai = True
-                st.rerun()
+        # Clearing develop_response happens inside the callback (before the
+        # text_area is re-instantiated on the next run) — see _submit_develop_response.
+        st.button("Send →", type="primary", on_click=_submit_develop_response)
 
 # ── "Build the Plan" button — always visible ──────────────────────────────────
 st.markdown("---")

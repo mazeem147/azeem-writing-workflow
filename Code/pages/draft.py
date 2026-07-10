@@ -1,4 +1,5 @@
 import os
+import re
 import html as _html
 import httpx
 import streamlit as st
@@ -49,6 +50,23 @@ def _call_claude(messages, timeout=120):
     )
     resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"].strip()
+
+
+# ── Voice-rule enforcement ────────────────────────────────────────────────────
+# Matches an em dash (U+2014) or horizontal bar (U+2015) plus any surrounding
+# whitespace. \s and \u are both interpreted by the re engine.
+_EM_DASH_RE = re.compile(r"\s*[—―]\s*")
+
+
+def _strip_em_dashes(text):
+    """The Voice rules forbid em dashes, but the model emits them anyway.
+    Replace each em dash (with its surrounding whitespace) with a comma so the
+    clause break still reads naturally, then tidy any doubled/space-before commas."""
+    text = _EM_DASH_RE.sub(", ", text)
+    text = re.sub(r"\s+,", ",", text)         # " ," -> ","
+    text = re.sub(r",\s*,", ", ", text)       # ",," / ", ," -> ", "
+    text = re.sub(r"[^\S\n]{2,}", " ", text)  # collapse runs of spaces/tabs, keep newlines
+    return text
 
 
 # ── Style Fingerprint extraction ──────────────────────────────────────────────
@@ -148,7 +166,7 @@ def _generate_section(section_idx, feedback=None):
         {"role": "system", "content": system},
         {"role": "user", "content": "Write this section now."},
     ]
-    return _call_claude(messages)
+    return _strip_em_dashes(_call_claude(messages))
 
 
 # ── Inline revision form ──────────────────────────────────────────────────────
@@ -199,14 +217,17 @@ def _render_revision_form(section_idx):
 
             if new_text is not None:
                 st.session_state.draft_sections[section_idx] = new_text
-                st.session_state.revision_feedback = ""
+                # Don't reset revision_feedback here: the text_area with this key
+                # was already instantiated this run (StreamlitAPIException). Closing
+                # the form and reopening it via "Revise ✦" clears the field safely
+                # (before the widget is created).
                 st.session_state.modal_section_idx = None
                 st.rerun()
 
     with cancel_col:
         if st.button("Cancel", key="cancel_" + str(section_idx)):
+            # See note above — the reset is handled on reopen, not here.
             st.session_state.modal_section_idx = None
-            st.session_state.revision_feedback = ""
             st.rerun()
 
     st.markdown(

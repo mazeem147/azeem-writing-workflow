@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import httpx
 import streamlit as st
@@ -41,6 +42,23 @@ def _call_claude(messages, timeout=90):
     return resp.json()["choices"][0]["message"]["content"].strip()
 
 
+# ── Voice-rule enforcement ────────────────────────────────────────────────────
+# Matches an em dash (U+2014) or horizontal bar (U+2015) plus any surrounding
+# whitespace. \s and \u are both interpreted by the re engine.
+_EM_DASH_RE = re.compile(r"\s*[—―]\s*")
+
+
+def _strip_em_dashes(text):
+    """The Voice rules forbid em dashes, but the model emits them anyway.
+    Replace each em dash (with its surrounding whitespace) with a comma so the
+    clause break still reads naturally, then tidy any doubled/space-before commas."""
+    text = _EM_DASH_RE.sub(", ", text)
+    text = re.sub(r"\s+,", ",", text)         # " ," -> ","
+    text = re.sub(r",\s*,", ", ", text)       # ",," / ", ," -> ", "
+    text = re.sub(r"[^\S\n]{2,}", " ", text)  # collapse runs of spaces/tabs, keep newlines
+    return text
+
+
 # ── Tweet Thread generation ────────────────────────────────────────────────────
 def _generate_tweet_thread(full_draft):
     system = (
@@ -79,8 +97,8 @@ def _generate_tweet_thread(full_draft):
     except Exception:
         # Fallback: split by newline, treat non-empty lines as tweets
         tweets = [line.strip() for line in raw.splitlines() if line.strip()]
-    # Keep only non-empty tweets, cap at 12
-    tweets = [t for t in tweets if t][:12]
+    # Keep only non-empty tweets, strip em dashes, cap at 12
+    tweets = [_strip_em_dashes(t) for t in tweets if t][:12]
     return tweets
 
 
@@ -103,7 +121,7 @@ def _generate_linkedin_post(full_draft):
         {"role": "system", "content": system},
         {"role": "user", "content": "Article:\n\n" + full_draft},
     ]
-    return _call_claude(messages)
+    return _strip_em_dashes(_call_claude(messages))
 
 
 # ── Session state defaults ─────────────────────────────────────────────────────
