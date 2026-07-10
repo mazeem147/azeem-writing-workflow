@@ -16,7 +16,7 @@ Transcribe → Develop → Plan → Draft → Publish
 2. **Develop** — Claude reads your transcript and opens a dialogue, asking targeted questions to draw out your full position. You answer until you're ready.
 3. **Plan** — A structured writing plan is extracted from your conversation, with relevant past notes surfaced from your personal knowledge base.
 4. **Draft** — Sections are generated one by one in your voice, using a style fingerprint built from your best past writing.
-5. **Publish** — Paste the Substack URL after publishing. The article is indexed for future reference.
+5. **Publish** — An approval checklist gates the final step. Paste the Substack URL after publishing, and the full article is chunked and indexed into a `published_articles` collection in your knowledge base, so future development sessions can surface it as a source.
 
 Repurposed content (Tweet thread + LinkedIn post) is generated alongside the draft.
 
@@ -62,13 +62,15 @@ Then run:
 
 ## Build status
 
+**Feature-complete** — all five stages are built and working end to end.
+
 | Issue | Stage | Status |
 |---|---|---|
 | 01 | App scaffold + sidebar navigation | ✅ Done |
 | 02 | Transcribe stage | ✅ Done |
 | 03 | Develop stage | ✅ Done |
-| 04 | Voice input (mic component) | 🔲 Next |
-| 05 | Plan stage | 🔲 Pending |
-| 06 | Draft stage | 🔲 Pending |
-| 07 | Repurposed content | 🔲 Pending |
-| 08 | Publish stage | 🔲 Pending |
+| 04 | Voice input (mic component) | ✅ Done |
+| 05 | Plan stage | ✅ Done |
+| 06 | Draft stage | ✅ Done |
+| 07 | Repurposed content | ✅ Done |
+| 08 | Publish stage | ✅ Done |
