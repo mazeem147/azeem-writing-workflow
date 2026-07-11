@@ -65,7 +65,7 @@ Then run:
 
 ## Build status
 
-All five stages are built and working end to end. LinkedIn migration (issues 09-11) is in progress: the domain docs and Repurposed Content stage are done; the Publish stage still needs to be repointed from Substack to a LinkedIn article URL.
+All eleven issues are complete. All five stages are built, LinkedIn-native end to end, and working.
 
 | Issue | Stage | Status |
 |---|---|---|
@@ -76,7 +76,7 @@ All five stages are built and working end to end. LinkedIn migration (issues 09-
 | 05 | Plan stage | ✅ Done |
 | 06 | Draft stage | ✅ Done |
 | 07 | Repurposed content (Tweet Thread + Substack-teaser LinkedIn Post) | ✅ Done, superseded by 10 |
-| 08 | Publish stage (Substack) | ✅ Done, being repointed by 11 |
+| 08 | Publish stage (Substack) | ✅ Done, superseded by 11 |
 | 09 | Swap Substack→LinkedIn vocabulary in domain docs | ✅ Done |
 | 10 | Repurposed content: LinkedIn Article + LinkedIn Feed Post | ✅ Done |
-| 11 | Publish stage: repoint to LinkedIn URL | ⏳ Next |
+| 11 | Publish stage: repoint to LinkedIn URL | ✅ Done |

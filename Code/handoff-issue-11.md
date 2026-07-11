@@ -1,7 +1,19 @@
-# Handoff: Azeem's Writing Workflow — ready to build Issue 11 (final issue)
+# Handoff: Azeem's Writing Workflow — Issue 11 (final issue)
 
 **Session date:** 2026-07-11
-**Next task:** Implement Issue 11 — Publish stage: repoint the Substack URL flow to a LinkedIn article URL, keep the `published_articles` ChromaDB indexing unchanged.
+**Status: ✅ COMPLETE — commit `43a72a9` on `main`.**
+
+Issue 11 was implemented, verified live in the browser, code-reviewed (Standards + Spec, both clean), and committed. All 11 issues are now done — the LinkedIn migration (09-11) is finished and all five stages are LinkedIn-native end to end. This doc is kept as a historical record of the stale-line mapping used to do the work; there is no further next-session task from this handoff.
+
+**What shipped:**
+- `pages/publish.py` — checklist split into 5 rows (`article_ok`/`feed_ok` replacing the dead `linkedin_ok`), Substack URL input replaced with a LinkedIn URL input, `gen_warnings` added to the piece-clear list, `stages_ready` extracted (code-review follow-up) to remove a duplicated 4-flag conjunction.
+- `pages/draft.py` — dropped a stale "Substack article" mention from the section-generation system prompt (found during implementation, out of this ticket's original scope but fixed in the same commit per user instruction).
+- `Code/WORKING_CONTEXT.md` — Issue 11 build-log entry added.
+
+**Verification:** live browser run via a temporary env-gated seed (`SEED_PUBLISH_TEST`, one-time-fire guarded, fully removed before commit) confirmed all 5 checklist rows gate correctly, one chunk indexed into `published_articles` with correct LinkedIn URL/date metadata (checked directly against the real ChromaDB, then deleted), `second_brain` collection count unchanged (1610), confirmation screen survives the state clear, and "Start a New Piece" resets every stage. 7/7 repurpose + 3/3 plan tests still pass.
+
+**Outstanding (not part of Issue 11, flagged for a future session):**
+- The `origin` remote URL has a GitHub Personal Access Token embedded in it (see the security note at the bottom of this doc) — still needs rotating.
 
 ---
 
@@ -26,11 +38,9 @@ Repurposed Content stage reworked to produce **three** LinkedIn-native outputs. 
 
 ---
 
-## ⚠️ Critical: `pages/publish.py` is stale after Issue 10
+## ✅ Resolved: `pages/publish.py` staleness after Issue 10
 
-Issue 10 renamed `linkedin_post` → `linkedin_article` + `linkedin_feed_post`, but **`publish.py` still references the dead `linkedin_post` key**. This was left intentionally — `publish.py` is Issue 11's job — but it means the Publish stage's "LinkedIn Post ready" checklist row is currently **permanently unchecked** (the key never exists), so publishing is silently blocked until Issue 11 fixes it. Fixing this is squarely part of Issue 11.
-
-Exact stale spots in the current `pages/publish.py`:
+Issue 10 renamed `linkedin_post` → `linkedin_article` + `linkedin_feed_post`, and Issue 11 (this commit) caught `publish.py` up. Kept below as a record of the exact mapping that was applied — all rows in this table are now done in `pages/publish.py`.
 
 | Line(s) | Current (stale) | Issue 11 target |
 |---|---|---|
@@ -96,13 +106,11 @@ Or `preview_start` with server name `"Writing Workflow"` (`.claude/launch.json`)
 ## Tests
 Run: `.venv/bin/python tests/test_repurpose_content.py` and `.venv/bin/python tests/test_plan_section_ops.py` (self-running; no pytest installed in the venv). A `tests/test_publish_*.py` for Issue 11 could assert the checklist gates on the new keys and that indexing writes only to `published_articles` (the PRD says use the real local ChromaDB, don't mock it).
 
-## Suggested skills for next session
-- `/implement Issue 11` — read `issues/11-linkedin-publish-stage.md` and this handoff first.
-- `/code-review` — after implementing (the user prefers to set mode/effort before it runs; prompt them first).
-- `/verify` — confirm the 5-row checklist gates correctly on the new keys, the confirmation screen appears, and session state is cleared for a new piece.
+## Done — no further build session needed off this handoff
+Issue 11 was implemented, verified, code-reviewed, and committed this session (see status note at the top). All 11 issues are complete. Any future work is a new initiative, not a continuation of this handoff — the only carry-over item is the security note below.
 
 ## Repo / git
 - GitHub: https://github.com/mazeem147/azeem-writing-workflow (remote `origin`, branch `main`).
-- Last commit: `79643a1` — "Issue 10: LinkedIn Repurposed Content (Article + Feed Post)".
+- Last commit: `43a72a9` — "Issue 11: LinkedIn Publish stage (repoint from Substack URL)".
 - Convention: each issue is committed directly to `main`.
-- **Security note (flag to the user):** the `origin` remote URL has a GitHub Personal Access Token embedded in it (`git remote -v`). Consider rotating that token and switching to a credential helper / SSH so the secret isn't stored in `.git/config`.
+- **Security note (flag to the user, still outstanding):** the `origin` remote URL has a GitHub Personal Access Token embedded in it (`git remote -v`). Consider rotating that token and switching to a credential helper / SSH so the secret isn't stored in `.git/config`.
