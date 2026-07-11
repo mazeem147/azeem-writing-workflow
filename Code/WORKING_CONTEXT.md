@@ -252,6 +252,24 @@ Supersedes Issue 07's single Substack-teaser "LinkedIn Post". Substack is deferr
 
 ---
 
+### Issue 11 — Publish stage: repoint to LinkedIn URL ✅
+
+Supersedes Issue 08. The `published_articles` ChromaDB indexing (`_chunk_text`, `_index_article`, `all-MiniLM-L6-v2` embedding, idempotent per-URL upsert, metadata) was already correct and untouched — this was a relabel/repoint of the stale Substack-era UI Issue 10 left behind, not a rebuild.
+
+**Files changed:**
+- `pages/publish.py` — `linkedin_ok` (checked the now-dead `linkedin_post` key) split into `article_ok` (`linkedin_article`) and `feed_ok` (`linkedin_feed_post`). The Substack URL `st.text_input` (key `substack_url`) replaced with a LinkedIn URL input (key `linkedin_url`, LinkedIn-specific placeholder/help text). Checklist grew from 4 to 5 rows: Draft approved, Tweet Thread ready, LinkedIn Article ready, LinkedIn Feed Post ready, LinkedIn URL provided. `can_publish` and the hint text below the checklist updated to require both `article_ok` and `feed_ok`. `_PIECE_KEYS` swapped `linkedin_post` for `linkedin_article` + `linkedin_feed_post`, and added `gen_warnings` (new in Issue 10, previously never cleared). "Start a New Piece" now pops `linkedin_url` instead of `substack_url`.
+
+**Key decisions:**
+- No changes to `_chunk_text`, `_index_article`, `_load_embed_model`, `_load_published_collection`, or the confirmation-screen/guard structure — all already matched this ticket's ACs from Issue 08.
+- `publish_confirmation` stays out of `_PIECE_KEYS`, unchanged — it's still the separate key that survives `_clear_piece_state()` so the confirmation screen renders after the piece state is wiped.
+- **Manual verification**: the embedded preview browser can't drive the native file-picker for the Transcribe upload step, so rather than running the full 5-stage pipeline, a temporary env-gated seed block (`SEED_PUBLISH_TEST=1`) was added to the top of `publish.py` to populate `draft_sections`/`draft_approved`/`tweet_thread`/`linkedin_article`/`linkedin_feed_post`/`working_title` directly, then removed before considering the work done. First seed attempt used `setdefault(...)`, which silently re-populated cleared keys on the post-publish `st.rerun()` and masked whether `_clear_piece_state()` actually worked — fixed by gating the seed behind a one-time `_seed_publish_test_done` flag so it only fires on the very first run of a session. Confirmed live: all 5 checklist rows gate correctly on the new keys, indexing wrote one chunk into `published_articles` with the correct LinkedIn URL/date/title metadata (verified by querying the real shared ChromaDB directly), the confirmation screen renders and survives the state clear, and after "Start a New Piece" the sidebar shows "Untitled piece" with every stage reset to unstarted. The one test chunk written to the real shared ChromaDB was deleted afterward; `second_brain` (Notion notes) collection count was confirmed unchanged (1610 before and after) — never written to.
+- Found a stale "Substack article" mention in `pages/draft.py`'s section-generation system prompt (an internal Claude prompt, not user-facing UI) — out of this ticket's scope (Draft stage, not Publish), flagged separately rather than fixed here.
+
+**Session state consumed:** `draft_sections`, `draft_approved`, `tweet_thread`, `linkedin_article`, `linkedin_feed_post`, `working_title`
+**Session state produced:** `publish_confirmation` (dict: title, url, chunks, published_date) — survives the piece-state clear that follows a successful publish.
+
+---
+
 ## What's next
 
-All 8 original issues implemented, plus Issue 09 (vocabulary) and Issue 10 (LinkedIn Article + Feed Post). Issue 11 (LinkedIn publish stage) is next: `pages/publish.py` still needs its checklist and URL input updated to match the `linkedin_article`/`linkedin_feed_post` keys and drop the Substack URL field.
+All 8 original issues implemented, plus Issue 09 (vocabulary), Issue 10 (LinkedIn Article + Feed Post), and Issue 11 (LinkedIn publish stage). All 5 stages are now LinkedIn-native end to end. Outstanding: the stale "Substack article" line in `pages/draft.py`'s system prompt (flagged as a separate follow-up, not part of Issue 11's scope), and rotating the GitHub PAT embedded in the `origin` remote URL (flagged in the Issue 11 handoff).

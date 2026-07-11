@@ -149,7 +149,7 @@ def _generate_section(section_idx, feedback=None):
         )
 
     system = (
-        "You are writing one section of a Substack article in the writer's own voice.\n\n"
+        "You are writing one section of an article in the writer's own voice.\n\n"
         "Section title: " + section["title"] + "\n"
         "Points to cover:\n" + bullets_text + "\n\n"
         + position_hint

@@ -114,7 +114,7 @@ _PIECE_KEYS = [
     "style_fingerprint", "draft_sections", "draft_approved",
     "modal_section_idx", "revision_feedback",
     # Repurpose stage
-    "tweet_thread", "linkedin_post",
+    "tweet_thread", "linkedin_article", "linkedin_feed_post", "gen_warnings",
 ]
 
 
@@ -172,7 +172,7 @@ if _conf:
     with btn_col:
         if st.button("Start a New Piece →", type="primary"):
             st.session_state.pop("publish_confirmation", None)
-            st.session_state.pop("substack_url", None)
+            st.session_state.pop("linkedin_url", None)
             st.switch_page("pages/transcribe.py")
     st.stop()
 
@@ -188,16 +188,17 @@ if not st.session_state.get("draft_sections"):
     st.stop()
 
 # ── Readiness state ──────────────────────────────────────────────────────────
-draft_ok    = bool(st.session_state.get("draft_approved"))
-tweet_ok    = bool(st.session_state.get("tweet_thread"))
-linkedin_ok = bool(st.session_state.get("linkedin_post"))
+draft_ok   = bool(st.session_state.get("draft_approved"))
+tweet_ok   = bool(st.session_state.get("tweet_thread"))
+article_ok = bool(st.session_state.get("linkedin_article"))
+feed_ok    = bool(st.session_state.get("linkedin_feed_post"))
 
-# ── Substack URL input ───────────────────────────────────────────────────────
+# ── LinkedIn URL input ───────────────────────────────────────────────────────
 raw_url = st.text_input(
-    "Substack URL",
-    placeholder="https://yourname.substack.com/p/your-article",
-    key="substack_url",
-    help="Publish on Substack first, then paste the live URL here.",
+    "LinkedIn URL",
+    placeholder="https://www.linkedin.com/pulse/your-article",
+    key="linkedin_url",
+    help="Publish the LinkedIn Article first, then paste the live URL here.",
 )
 url = (raw_url or "").strip()
 url_ok = url.startswith("http://") or url.startswith("https://")
@@ -210,10 +211,11 @@ st.markdown(
 )
 
 _CHECKLIST = [
-    (draft_ok,    "Draft approved"),
-    (tweet_ok,    "Tweet Thread ready"),
-    (linkedin_ok, "LinkedIn Post ready"),
-    (url_ok,      "Substack URL provided"),
+    (draft_ok,   "Draft approved"),
+    (tweet_ok,   "Tweet Thread ready"),
+    (article_ok, "LinkedIn Article ready"),
+    (feed_ok,    "LinkedIn Feed Post ready"),
+    (url_ok,     "LinkedIn URL provided"),
 ]
 
 checklist_html = "<div style='margin-bottom:0.5rem'>"
@@ -232,16 +234,17 @@ for is_done, label in _CHECKLIST:
 checklist_html += "</div>"
 st.markdown(checklist_html, unsafe_allow_html=True)
 
-can_publish = draft_ok and tweet_ok and linkedin_ok and url_ok
+stages_ready = draft_ok and tweet_ok and article_ok and feed_ok
+can_publish  = stages_ready and url_ok
 
 st.markdown("---")
 
 hint_col, btn_col = st.columns([3, 1])
 with hint_col:
-    if not (draft_ok and tweet_ok and linkedin_ok):
+    if not stages_ready:
         hint = "Complete the earlier stages before publishing."
     elif not url_ok:
-        hint = "Paste your live Substack URL above to enable publishing."
+        hint = "Paste your live LinkedIn URL above to enable publishing."
     else:
         hint = "Ready — this will index the article into your Second Brain."
     st.markdown(
