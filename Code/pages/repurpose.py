@@ -10,7 +10,7 @@ render_sidebar("publish")
 render_page_header(
     "publish",
     "🔁 Repurposed Content",
-    "Tweet Thread + LinkedIn Post, generated from your Draft.",
+    "Tweet Thread, LinkedIn Article, and LinkedIn Feed Post, generated from your Draft.",
 )
 
 # ── Guard ──────────────────────────────────────────────────────────────────────
@@ -59,6 +59,19 @@ def _strip_em_dashes(text):
     return text
 
 
+_MD_BOLD_RE   = re.compile(r"\*\*(.+?)\*\*")
+_MD_HEADER_RE = re.compile(r"^#{1,6}\s*", flags=re.MULTILINE)
+
+
+def _strip_markdown(text):
+    """LinkedIn's article editor and feed compose box render markdown syntax as
+    literal characters, not formatting. The prompt says not to use it, but the
+    model emits it anyway, so strip **bold** and # headers here."""
+    text = _MD_BOLD_RE.sub(r"\1", text)
+    text = _MD_HEADER_RE.sub("", text)
+    return text
+
+
 # ── Tweet Thread generation ────────────────────────────────────────────────────
 def _generate_tweet_thread(full_draft):
     system = (
@@ -72,8 +85,8 @@ def _generate_tweet_thread(full_draft):
         "that makes someone stop scrolling.\n"
         "- Each tweet must be standalone-readable. A reader who sees only tweet 5 of 10 should "
         "get value from it, even without context.\n"
-        "- Final tweet: a hook that drives the reader to Substack. Reference that the full "
-        "piece is there. Make them want to go.\n"
+        "- Final tweet: a hook that drives the reader to the LinkedIn Article. Reference that "
+        "the full piece is there. Make them want to go.\n"
         "- Every tweet must be under 280 characters.\n"
         "- Do not number the tweets.\n"
         "- Do not use hashtags unless they are essential to the meaning.\n"
@@ -102,16 +115,53 @@ def _generate_tweet_thread(full_draft):
     return tweets
 
 
-# ── LinkedIn Post generation ───────────────────────────────────────────────────
-def _generate_linkedin_post(full_draft):
+# ── LinkedIn Article generation ────────────────────────────────────────────────
+def _generate_linkedin_article(full_draft):
     system = (
-        "You are writing a LinkedIn post that drives traffic to a Substack article.\n\n"
+        "You are adapting a long-form Draft into a LinkedIn Article — the piece's primary "
+        "publishable form, posted via LinkedIn's native article editor, where it becomes a "
+        "permanent, Google-indexed portfolio artifact on the profile.\n\n"
         "Rules:\n"
-        "- 3 to 5 sentences.\n"
+        "- 600 to 900 words.\n"
+        "- Deliver the complete argument in full. This is not a summary or a teaser, it is "
+        "the whole piece adapted for LinkedIn's article format.\n"
+        "- Preserve every claim and the structure of the Draft; tighten or expand as needed "
+        "to land in the word range without dropping any part of the argument.\n"
+        "- Write in the same voice as the Draft: analytical and personal in the same sentence, "
+        "thinks out loud, ends open.\n"
+        "- Use short paragraphs (2-4 sentences). No markdown headers, no bullet-point lists, "
+        "no bold/italic syntax — LinkedIn's article editor does not render markdown.\n"
+        "- Do not reference any other publishing destination. This LinkedIn Article is the "
+        "whole piece; it lives here and nowhere else.\n\n"
+        "Return only the article text. No explanation, no preamble, no title line."
+    )
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": "Draft to adapt into a LinkedIn Article:\n\n" + full_draft},
+    ]
+    return _strip_markdown(_strip_em_dashes(_call_claude(messages)))
+
+
+# ── LinkedIn Feed Post generation ──────────────────────────────────────────────
+def _generate_linkedin_feed_post(full_draft):
+    system = (
+        "You are writing a LinkedIn Feed Post to accompany a companion LinkedIn Article that "
+        "carries the full argument. The Feed Post's only job is to earn comments in the first "
+        "hour after posting — algorithmic amplification depends on early engagement.\n\n"
+        "Rules:\n"
+        "- 150 to 200 words.\n"
+        "- Open with a direct hook in the first line. No throat-clearing, no restating the "
+        "article's introduction, no title or headline line above the hook.\n"
+        "- Surface the core provocation — the single claim most likely to make someone stop "
+        "scrolling.\n"
+        "- No markdown syntax anywhere (no **bold**, no # headers) — the LinkedIn feed renders "
+        "asterisks and hashes as literal characters, not formatting.\n"
+        "- End on a question or a strong opinion designed to invite replies. Not a bare "
+        "'thoughts?' — actually provoke a response.\n"
+        "- Reference that the full argument lives in the LinkedIn Article (e.g. 'I go deeper "
+        "in the article below' or similar). The Feed Post is a hook toward it, not a "
+        "replacement for it.\n"
         "- Direct tone. Not corporate. Not buzzword-heavy.\n"
-        "- Surface the core provocation of the article — the thing that makes it worth reading.\n"
-        "- End with a sentence that drives to Substack. Something like 'Full piece on Substack.' "
-        "or 'I wrote about this in full — link in bio.' Keep it natural, not salesy.\n"
         "- No emojis unless they are essential.\n"
         "- No hashtag spam.\n"
         "- Write in the same voice as the article.\n\n"
@@ -119,61 +169,133 @@ def _generate_linkedin_post(full_draft):
     )
     messages = [
         {"role": "system", "content": system},
-        {"role": "user", "content": "Article:\n\n" + full_draft},
+        {"role": "user", "content": "Draft the companion LinkedIn Article is based on:\n\n" + full_draft},
     ]
-    return _strip_em_dashes(_call_claude(messages))
+    return _strip_markdown(_strip_em_dashes(_call_claude(messages)))
+
+
+def _word_count(text):
+    return len(text.split())
+
+
+# ── Generation orchestration ────────────────────────────────────────────────
+def _validate_tweet_count(tweets):
+    """Warning string if the thread is under the expected 8-12 range, else None."""
+    if len(tweets) < 8:
+        return (
+            "Only " + str(len(tweets)) + " tweets generated (expected 8-12). "
+            "Use ↺ Regenerate Thread to try again."
+        )
+    return None
+
+
+def _word_range_validator(label, regen_label, lo, hi):
+    """Build a validator that returns a warning if a text output falls outside
+    [lo, hi] words, else None."""
+    def validate(text):
+        wc = _word_count(text)
+        if wc < lo or wc > hi:
+            return (
+                label + " is " + str(wc) + " words (expected "
+                + str(lo) + "-" + str(hi) + "). Use ↺ " + regen_label + " to try again."
+            )
+        return None
+    return validate
+
+
+def _generate_output(full_draft, state_key, label, generate_fn, validate):
+    """Generate one output into st.session_state[state_key] if it is absent.
+
+    generate_fn(full_draft) -> result; validate(result) -> warning str or None.
+    A validation warning is persisted into st.session_state.gen_warnings rather
+    than shown with st.warning() here, because this phase ends in st.rerun(): a
+    warning emitted now would flash and vanish before the user sees it. The
+    display phase (which does not rerun) renders the persisted warning.
+
+    A no-op once the output is present, so the three calls each generate one
+    output per rerun and preserve the sequential "output appears" UX."""
+    if st.session_state[state_key] is not None:
+        return
+    result = None
+    with st.spinner("Generating " + label + "…"):
+        try:
+            result = generate_fn(full_draft)
+        except Exception as exc:
+            st.error(label + " generation failed: " + str(exc))
+            st.stop()
+    if result is None:
+        st.stop()
+    st.session_state.gen_warnings[state_key] = validate(result)
+    st.session_state[state_key] = result
+    st.rerun()
 
 
 # ── Session state defaults ─────────────────────────────────────────────────────
-if "tweet_thread" not in st.session_state:
-    st.session_state.tweet_thread = None
-if "linkedin_post" not in st.session_state:
-    st.session_state.linkedin_post = None
+for _key in ("tweet_thread", "linkedin_article", "linkedin_feed_post"):
+    if _key not in st.session_state:
+        st.session_state[_key] = None
+if "gen_warnings" not in st.session_state:
+    st.session_state.gen_warnings = {}
 
 full_draft = "\n\n".join(st.session_state.draft_sections)
 
 # ── Generation phase ───────────────────────────────────────────────────────────
-if st.session_state.tweet_thread is None:
-    tweets = None
-    with st.spinner("Generating Tweet Thread…"):
-        try:
-            tweets = _generate_tweet_thread(full_draft)
-        except Exception as exc:
-            st.error("Tweet Thread generation failed: " + str(exc))
-            st.stop()
-    if tweets is None:
-        st.stop()
-    if len(tweets) < 8:
-        st.warning(
-            "Only " + str(len(tweets)) + " tweets generated (expected 8-12). "
-            "Use ↺ Regenerate Thread to try again."
-        )
-    st.session_state.tweet_thread = tweets
-    st.rerun()
+# One session-state-gated phase per output; each generates then reruns, so the
+# outputs appear sequentially. See _generate_output for the warning handling.
+_generate_output(
+    full_draft, "tweet_thread", "Tweet Thread",
+    _generate_tweet_thread, _validate_tweet_count,
+)
+_generate_output(
+    full_draft, "linkedin_article", "LinkedIn Article",
+    _generate_linkedin_article,
+    _word_range_validator("LinkedIn Article", "Regenerate Article", 600, 900),
+)
+_generate_output(
+    full_draft, "linkedin_feed_post", "LinkedIn Feed Post",
+    _generate_linkedin_feed_post,
+    _word_range_validator("LinkedIn Feed Post", "Regenerate Feed Post", 150, 200),
+)
 
-if st.session_state.linkedin_post is None:
-    post = None
-    with st.spinner("Generating LinkedIn Post…"):
-        try:
-            post = _generate_linkedin_post(full_draft)
-        except Exception as exc:
-            st.error("LinkedIn Post generation failed: " + str(exc))
-            st.stop()
-    if post is None:
-        st.stop()
-    st.session_state.linkedin_post = post
-    st.rerun()
+# ── Single-block text output renderer (LinkedIn Article / Feed Post) ─────────
+def _render_text_output(state_key, text, regen_label, regen_key):
+    """Render any persisted validation warning, a word count, the copyable text
+    block, and a regenerate button that clears only this output's state."""
+    muted = PALETTE["muted"]
+    warning = st.session_state.gen_warnings.get(state_key)
+    if warning:
+        st.warning(warning)
+    st.markdown(
+        "<p style='color:" + muted + ";font-size:0.85rem;margin-bottom:1rem'>"
+        + str(_word_count(text)) + " words · Copy the full block below</p>",
+        unsafe_allow_html=True,
+    )
+    st.code(text, language=None)
+    st.markdown("<div style='margin-top:0.5rem'></div>", unsafe_allow_html=True)
+    _, regen_col = st.columns([3, 1])
+    with regen_col:
+        if st.button("↺ " + regen_label, key=regen_key):
+            st.session_state[state_key] = None
+            st.session_state.gen_warnings.pop(state_key, None)
+            st.rerun()
+
 
 # ── Display ────────────────────────────────────────────────────────────────────
-tweets = st.session_state.tweet_thread
-post   = st.session_state.linkedin_post
+tweets    = st.session_state.tweet_thread
+article   = st.session_state.linkedin_article
+feed_post = st.session_state.linkedin_feed_post
 
 gold  = PALETTE["gold"]
 muted = PALETTE["muted"]
 
-tab_thread, tab_linkedin = st.tabs(["🐦 Tweet Thread", "💼 LinkedIn Post"])
+tab_thread, tab_article, tab_feed = st.tabs(
+    ["🐦 Tweet Thread", "📰 LinkedIn Article", "💼 LinkedIn Feed Post"]
+)
 
 with tab_thread:
+    thread_warning = st.session_state.gen_warnings.get("tweet_thread")
+    if thread_warning:
+        st.warning(thread_warning)
     thread_count = str(len(tweets))
     st.markdown(
         "<p style='color:" + muted + ";font-size:0.85rem;margin-bottom:1rem'>"
@@ -201,22 +323,14 @@ with tab_thread:
     with regen_col:
         if st.button("↺ Regenerate Thread", key="regen_thread"):
             st.session_state.tweet_thread = None
+            st.session_state.gen_warnings.pop("tweet_thread", None)
             st.rerun()
 
-with tab_linkedin:
-    st.markdown(
-        "<p style='color:" + muted + ";font-size:0.85rem;margin-bottom:1rem'>"
-        "Copy the full block below</p>",
-        unsafe_allow_html=True,
-    )
-    st.code(post, language=None)
+with tab_article:
+    _render_text_output("linkedin_article", article, "Regenerate Article", "regen_article")
 
-    st.markdown("<div style='margin-top:0.5rem'></div>", unsafe_allow_html=True)
-    _, regen_col = st.columns([3, 1])
-    with regen_col:
-        if st.button("↺ Regenerate Post", key="regen_linkedin"):
-            st.session_state.linkedin_post = None
-            st.rerun()
+with tab_feed:
+    _render_text_output("linkedin_feed_post", feed_post, "Regenerate Feed Post", "regen_feed_post")
 
 # ── Bottom bar ─────────────────────────────────────────────────────────────────
 st.markdown("---")
@@ -225,7 +339,7 @@ hint_col, btn_col = st.columns([3, 1])
 with hint_col:
     st.markdown(
         "<p style='color:" + muted + ";font-size:0.85rem;padding-top:6px'>"
-        "Review both tabs before marking as published.</p>",
+        "Review all three tabs before marking as published.</p>",
         unsafe_allow_html=True,
     )
 with btn_col:

@@ -171,7 +171,7 @@ with overlapping buttons. Two independent causes:
 
 ---
 
-### Issue 07 — Repurposed Content ✅
+### Issue 07 — Repurposed Content ✅ (superseded by Issue 10, see below)
 
 **Files created/changed:**
 - `pages/repurpose.py` — new page: guard, Tweet Thread generation, LinkedIn Post generation, tabs UI, regenerate buttons, "Mark as Published →" navigation
@@ -223,6 +223,35 @@ with overlapping buttons. Two independent causes:
 
 ---
 
+---
+
+---
+
+### Issue 10 — Repurposed Content: LinkedIn Article + LinkedIn Feed Post ✅
+
+Supersedes Issue 07's single Substack-teaser "LinkedIn Post". Substack is deferred (per Issue 09's glossary update); LinkedIn is now the primary publishing surface.
+
+**Files changed:**
+- `pages/repurpose.py` — `_generate_linkedin_post` (3-5 sentence Substack teaser) removed. Replaced with `_generate_linkedin_article` (600-900 words, full argument, native article editor) and `_generate_linkedin_feed_post` (150-200 words, first-hour-engagement hook, references the Article). Both go through `_strip_em_dashes` (unchanged Voice-rule enforcement) and a new `_strip_markdown` pass.
+- `tests/test_repurpose_content.py` — new. AppTest-driven, `httpx.post` monkeypatched with marker-based canned responses (no network/API key needed).
+
+**Key decisions:**
+- Tweet Thread generation (`_generate_tweet_thread`) is unchanged except its closing-hook system-prompt line, which now points at the LinkedIn Article instead of Substack.
+- All three generation system prompts avoid the literal word "Substack" entirely, including in negative instructions ("don't mention X") — an early test caught the article prompt's own "do not mention Substack" line violating the no-Substack-anywhere constraint. Rephrased to "do not reference any other publishing destination."
+- `_strip_markdown(text)` (new, alongside `_strip_em_dashes`) strips `**bold**` and `#`/`##` headers from the Article and Feed Post outputs only — live testing showed the model sometimes opens the Feed Post with a bolded title-line or markdown headline, which LinkedIn renders as literal asterisks/hashes. Not applied to Tweet Thread (ticket requires it stay unchanged).
+- Session state keys: `linkedin_post` → replaced by `linkedin_article` and `linkedin_feed_post`. `tweet_thread` unchanged.
+- Generation order: Tweet Thread → LinkedIn Article → LinkedIn Feed Post, each its own session-state-gated phase with `st.spinner` + `st.rerun()`, same idiom as before. The Feed Post prompt doesn't take the Article's text as input (it references the Article only conceptually, e.g. "I go deeper in the article below") — this keeps regeneration of one tab fully independent of the others, and there's no real URL to link to yet (that only exists after manual publish, Issue 11).
+- **Generation refactor (code-review follow-up):** the three near-identical generation phases were collapsed into one `_generate_output(full_draft, state_key, label, generate_fn, validate)` orchestrator, and the two single-block display tabs into `_render_text_output(state_key, text, regen_label, regen_key)`. The Tweet Thread tab keeps its bespoke per-tweet/char-count rendering inline (genuinely different, not folded). Validators: `_validate_tweet_count` (under-8) and `_word_range_validator(label, regen_label, lo, hi)` (a factory used for both the 600-900 article and 150-200 feed-post checks).
+- **Word-count range warnings now persist across the rerun.** The earlier version emitted `st.warning()` on the same pass that then called `st.rerun()`, so warnings flashed and vanished (a code-review Spec finding — the visible backing for the 600-900 / 150-200 word ACs never reached the user). Fixed: `_generate_output` stores the validator's result in `st.session_state.gen_warnings[state_key]`, and the display phase (which does not rerun) renders it via `st.warning()`. Regenerating an output pops its warning. This also fixed the same dead-warning bug in the pre-existing Tweet Thread under-8 warning, which now surfaces too (the thread *output* is unchanged). `tests/test_repurpose_content.py` asserts the warnings actually render in the final tree.
+- Tabs reorder to `["🐦 Tweet Thread", "📰 LinkedIn Article", "💼 LinkedIn Feed Post"]`; each has its own `↺ Regenerate …` button, independent (only its own session-state key + warning are cleared).
+- **Known follow-on for Issue 11**: `pages/publish.py`'s checklist still checks `st.session_state.get("linkedin_post")` (now always falsy/absent) and still prompts for a Substack URL — both stale after this rename. Left untouched per this ticket's explicit scope; Issue 11 owns `publish.py`.
+- **Manual verification**: driven live in the browser via a real 5-stage run (macOS `say` → `.wav` → real Whisper/Claude/OpenRouter calls, no mocks) after discovering the embedded preview browser can't drive native file-picker dialogs — used a temporary env-gated session-state seed block in `repurpose.py` (`WW_DEBUG_SEED=1`), fully removed afterward and confirmed via a clean server restart that the guard behaves normally again.
+
+**Session state consumed:** `st.session_state.draft_sections` (from Draft stage)
+**Session state produced:** `st.session_state.tweet_thread` (list[str], 8-12 tweets), `st.session_state.linkedin_article` (str, 600-900 words), `st.session_state.linkedin_feed_post` (str, 150-200 words), `st.session_state.gen_warnings` (dict[state_key → warning str or None], drives the persistent range/count warnings)
+
+---
+
 ## What's next
 
-All 8 issues implemented. Workflow is feature-complete end to end (Transcribe → Develop → Plan → Draft → Repurpose → Publish).
+All 8 original issues implemented, plus Issue 09 (vocabulary) and Issue 10 (LinkedIn Article + Feed Post). Issue 11 (LinkedIn publish stage) is next: `pages/publish.py` still needs its checklist and URL input updated to match the `linkedin_article`/`linkedin_feed_post` keys and drop the Substack URL field.
