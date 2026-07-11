@@ -27,7 +27,7 @@ Azeem's spoken or typed response to Seeder Questions. The raw material. Unpolish
 A structured outline extracted from the Brain Dump. Key claims, arguments, personal stories, analogies, contrarian positions. Reviewed and approved by Azeem before generation.
 
 **Draft**
-An article generated from the Writing Plan, grounded in Azeem's RAG notes (past thinking), and written in Azeem's voice. Not generic AI output. Published on Substack.
+An article generated from the Writing Plan, grounded in Azeem's RAG notes (past thinking), and written in Azeem's voice. Not generic AI output. The source for the LinkedIn outputs.
 
 **Voice**
 Azeem's rhetorical signature: journey structure (not report), analytical and personal in the same sentence, Urdu/Pakistani cadence, thinks out loud, ends open. Captured in the writing-voice skill.
@@ -48,16 +48,22 @@ Notes retrieved from ChromaDB for their topical relevance to the Writing Plan. U
 Notes retrieved from ChromaDB as stylistic exemplars — selected for how well they represent Azeem's prose rhythms, not their topic. Used to generate the Style Fingerprint.
 
 **Repurposed Content**
-Outputs generated from the Draft before publishing: a Tweet Thread and a LinkedIn Post. Generated in the same session as the Draft, reviewed and approved before anything goes live. Never auto-posted — tool stops at generation.
+Outputs generated from the Draft before publishing: a Tweet Thread and a LinkedIn Feed Post. The LinkedIn Article is the Draft's primary publishable form, not one of these repurposed derivatives. Generated in the same session as the Draft, reviewed and approved before anything goes live. Never auto-posted — tool stops at generation.
 
 **Tweet Thread**
-8-12 tweets written natively for Twitter's attention structure: strong opener, each tweet standalone-readable, closes with a hook to Substack. Not a compressed version of the article — a rewrite for a different medium.
+8-12 tweets written natively for Twitter's attention structure: strong opener, each tweet standalone-readable, closes with a hook to the LinkedIn Article. Not a compressed version of the article — a rewrite for a different medium.
 
-**LinkedIn Post**
-Short post (3-5 sentences) written to surface the core provocation of the article and drive traffic to Substack. Tone: direct, not corporate.
+**LinkedIn Article**
+The full argument, 600-900 words, published via LinkedIn's native article editor. A permanent, Google-indexed portfolio artifact that lives on Azeem's profile — the primary publishing destination for the Draft.
+
+**LinkedIn Feed Post**
+150-200 words engineered to earn comments in the first hour after posting. Links to the LinkedIn Article to trigger algorithmic amplification once early engagement builds.
 
 **Publication Record**
-After the user publishes manually on Substack and pastes the URL back into the tool, the article is indexed into the `published_articles` ChromaDB collection and the URL is stored. Future Development Sessions can surface published articles as Content Notes.
+After the user publishes manually on LinkedIn and pastes the LinkedIn article URL back into the tool, the article is indexed into the `published_articles` ChromaDB collection with the LinkedIn URL stored as metadata. Future Development Sessions can surface published articles as Content Notes.
+
+**Substack**
+Deferred. Was the original publishing destination for the Draft, now replaced by LinkedIn and not part of the current workflow. May be revisited in a future iteration.
 
 **Inference Provider**
 All LLM calls (transcription cleaning, Seeder Questions, Writing Plan extraction, Style Fingerprint, Draft generation, Repurposed Content) are routed through OpenRouter, not directly to Anthropic or OpenAI APIs. OpenRouter provides model flexibility and a single API key across providers.

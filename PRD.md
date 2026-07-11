@@ -8,11 +8,11 @@ Azeem can speak compellingly about ideas — in conversation, he explains clearl
 2. **Trigger-to-capture gap**: ideas are sparked by external stimuli (a YouTube video, a tweet, a workplace experience) in moments away from a laptop. If not captured immediately, the Juice — the emotional and intellectual energy — fades within hours. The opinion survives but the aliveness doesn't.
 3. **AI slop problem**: existing AI writing tools produce generic output that doesn't sound like Azeem. His voice is specific: journey structure (not report), analytical and personal in the same sentence, Urdu/Pakistani cadence, thinks out loud, ends open.
 
-The result: a backlog of ideas that never become articles, and a Substack that never gets published.
+The result: a backlog of ideas that never become articles, and a LinkedIn presence that never gets built.
 
 ## Solution
 
-A standalone 5-stage desktop tool that turns a voice memo into a publishable Substack article and its Repurposed Content (Tweet Thread + LinkedIn Post), grounded in Azeem's own notes and written in his actual Voice.
+A standalone 5-stage desktop tool that turns a voice memo into a publishable LinkedIn Article and its Repurposed Content (Tweet Thread + LinkedIn Feed Post), grounded in Azeem's own notes and written in his actual Voice.
 
 The workflow exploits how Azeem's brain works: it starts with a Trigger, captures the Juice via phone before it fades, then expands the Capture into a full piece through an AI-driven conversation — not a blank page. The output is a Draft the user revises section by section, not a document to rewrite from scratch.
 
@@ -21,8 +21,8 @@ The workflow exploits how Azeem's brain works: it starts with a Trigger, capture
 1. **Transcribe** — Upload the voice memo, transcribe via Whisper, clean with Claude. Uncertain Urdu/English words flagged for manual correction.
 2. **Develop** — AI generates Seeder Questions from the Capture. User responds by typing or recording voice. Repeats until user is ready to build the plan.
 3. **Plan** — Writing Plan extracted from the Brain Dump. Related notes from the Second Brain surfaced as Content Notes. User reviews and approves before generation.
-4. **Draft** — Article generated section by section, grounded in Content Notes and a Style Fingerprint extracted from Style Notes. Repurposed Content (Tweet Thread + LinkedIn Post) generated in the same session. User revises individual sections via text or voice.
-5. **Publish** — User publishes on Substack manually, pastes the URL back. Tool indexes the article into the `published_articles` ChromaDB collection for future reference.
+4. **Draft** — Article generated section by section, grounded in Content Notes and a Style Fingerprint extracted from Style Notes. The Draft is adapted into the LinkedIn Article (the primary output), with Repurposed Content (Tweet Thread + LinkedIn Feed Post) generated in the same session. User revises individual sections via text or voice.
+5. **Publish** — User publishes on LinkedIn manually, pastes the LinkedIn article URL back. Tool indexes the article into the `published_articles` ChromaDB collection for future reference.
 
 ## User Stories
 
@@ -56,10 +56,10 @@ The workflow exploits how Azeem's brain works: it starts with a Trigger, capture
 28. As Azeem, I want only the flagged section to regenerate so that good sections aren't discarded because one section was wrong.
 29. As Azeem, I want a Tweet Thread generated from my Draft in Twitter's native attention structure so that it performs on the platform, not just summarises the article.
 30. As Azeem, I want the Tweet Thread to open with a provocation, not the article's introduction so that it earns attention from the first tweet.
-31. As Azeem, I want a LinkedIn Post generated from the Draft that surfaces the core provocation and drives to Substack so that I have a ready-to-copy post for LinkedIn.
-32. As Azeem, I want both the Tweet Thread and LinkedIn Post shown in tabs so that the screen doesn't feel cluttered.
-33. As Azeem, I want to review the Tweet Thread and LinkedIn Post before marking as published so that nothing goes live before I've approved everything.
-34. As Azeem, I want to paste my Substack URL after publishing so that the article can be indexed into the Second Brain.
+31. As Azeem, I want a LinkedIn Article and LinkedIn Feed Post generated from the Draft — the Article carrying the full argument and the Feed Post surfacing its core provocation — so that I have ready-to-copy LinkedIn outputs.
+32. As Azeem, I want the Tweet Thread, LinkedIn Article, and LinkedIn Feed Post shown in tabs so that the screen doesn't feel cluttered.
+33. As Azeem, I want to review the Tweet Thread, LinkedIn Article, and LinkedIn Feed Post before marking as published so that nothing goes live before I've approved everything.
+34. As Azeem, I want to paste my LinkedIn article URL after publishing so that the article can be indexed into the Second Brain.
 35. As Azeem, I want the published article indexed into a `published_articles` ChromaDB collection so that future Development Sessions can surface it as a Content Note.
 36. As Azeem, I want a persistent left-sidebar showing my stage progress so that I always know where I am in the workflow.
 37. As Azeem, I want to navigate between stages by clicking the sidebar so that I can revisit a previous stage if I need to.
@@ -91,9 +91,9 @@ The workflow exploits how Azeem's brain works: it starts with a Trigger, capture
 
 - **Section revision**: user opens a modal per section, gives typed or voiced feedback. One Claude call regenerates only that section with the feedback appended. Other sections unchanged.
 
-- **Repurposed Content generation**: two separate Claude calls after Draft approval — one for Tweet Thread (native Twitter attention structure, 8-12 tweets), one for LinkedIn Post (3-5 sentences, direct tone). Generated before publishing, not after.
+- **LinkedIn Article + Repurposed Content generation**: after Draft approval, the Draft is adapted into the LinkedIn Article (600-900 words, native article structure, portfolio artifact) — the primary publishable output — via one Claude call. Two further Claude calls produce its Repurposed Content: a Tweet Thread (native Twitter attention structure, 8-12 tweets) and a LinkedIn Feed Post (150-200 words, engineered for first-hour engagement, links to the LinkedIn Article). Generated before publishing, not after.
 
-- **Publication Record**: after user pastes Substack URL, the full article text is chunked and upserted into the `published_articles` ChromaDB collection using the same `embed_utils.py` helper from the Second Brain codebase. The URL and publication date are stored in metadata.
+- **Publication Record**: after user pastes the LinkedIn article URL, the full article text is chunked and upserted into the `published_articles` ChromaDB collection using the same `embed_utils.py` helper from the Second Brain codebase. The URL and publication date are stored in metadata.
 
 - **App structure**: single `app.py` entry point using `st.navigation()`. One page per stage. Shared state via `st.session_state` (current piece, transcript, Brain Dump, Writing Plan, Draft sections, Repurposed Content).
 
@@ -111,15 +111,15 @@ The highest seam across the entire pipeline is the **stage transition**: each st
 - **ChromaDB retrieval**: given a query string, assert Content Notes and Style Notes are returned as non-empty lists of strings. Use the real ChromaDB (it's local and fast) — do not mock.
 - **Style Fingerprint extraction**: given a list of Style Notes, assert the fingerprint is a non-empty string describing rhetorical patterns.
 - **Draft section generation**: given a section outline + Content Notes + Style Fingerprint, assert the output is a non-empty paragraph in prose (not bullet points). Mock Claude API.
-- **Repurposed Content generation**: given a full Draft, assert Tweet Thread is a list of 8-12 strings each under 280 characters. Assert LinkedIn Post is 3-5 sentences.
-- **Publication Record indexing**: given article text and a Substack URL, assert the `published_articles` collection in ChromaDB has a new entry with matching metadata. Use the real ChromaDB.
+- **LinkedIn Article + Repurposed Content generation**: given a full Draft, assert LinkedIn Article is 600-900 words. Assert Tweet Thread is a list of 8-12 strings each under 280 characters. Assert LinkedIn Feed Post is 150-200 words.
+- **Publication Record indexing**: given article text and a LinkedIn article URL, assert the `published_articles` collection in ChromaDB has a new entry with matching metadata. Use the real ChromaDB.
 
 Prior art: `indexer.py` and `embed_utils.py` in the Second Brain codebase for ChromaDB upsert patterns. `pages/chat.py` for the RAG retrieval pattern.
 
 ## Out of Scope
 
 - **Automatic email polling**: the tool does not watch an inbox. Upload is always manual.
-- **Auto-posting to Substack, Twitter, or LinkedIn**: the tool generates content and stops. No social API integrations.
+- **Auto-posting to Twitter or LinkedIn**: the tool generates content and stops. No social API integrations.
 - **Scheduling posts**: no queuing or scheduled publishing.
 - **Multi-article management**: the tool handles one active piece at a time. No article library or history view in this version.
 - **Mobile web interface**: the tool is desktop-only. Phone is used only for Capture (voice memo + email).
