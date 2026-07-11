@@ -166,6 +166,21 @@ def _add_section(title):
     st.session_state.section_expanded[idx]    = True
 
 
+def _add_section_from_input():
+    """on_click callback for the "+ Add" button.
+
+    Callbacks run BEFORE widgets are instantiated on the resulting rerun, so
+    clearing the new_section_title widget key here is legal. Doing the same
+    reset inside the button's if-block (after st.text_input was already created
+    this run) is what raised StreamlitAPIException. Same fix as develop.py's
+    _submit_develop_response.
+    """
+    raw = st.session_state.get("new_section_title", "")
+    title_to_add = raw.strip() if raw else "New Section"
+    _add_section(title_to_add)
+    st.session_state["new_section_title"] = ""
+
+
 # ── Session state defaults ────────────────────────────────────────────────────
 if "writing_plan" not in st.session_state:
     st.session_state.writing_plan = None
@@ -236,7 +251,11 @@ with col_plan:
     for i, section in enumerate(plan):
         expanded = st.session_state.section_expanded.get(i, True)
 
-        c_tog, c_title, c_up, c_dn, c_del = st.columns([1, 9, 1, 1, 1])
+        # Action-button columns must be wide enough for the styled buttons
+        # (the ↑/↓ buttons render ~40px via ui.py's button padding). The old
+        # [1, 9, 1, 1, 1] gave them only ~19px, so buttons overflowed their
+        # columns and overlapped. These weights give ~46px action columns.
+        c_tog, c_title, c_up, c_dn, c_del = st.columns([2, 10, 3, 3, 3])
 
         with c_tog:
             tog = st.button(
@@ -304,18 +323,16 @@ with col_plan:
     )
     add_col_input, add_col_btn = st.columns([4, 1])
     with add_col_input:
-        new_title = st.text_input(
+        # Value is read from session_state["new_section_title"] inside the
+        # on_click callback, so the return value is intentionally not captured.
+        st.text_input(
             "New section",
             placeholder="New section title…",
             key="new_section_title",
             label_visibility="collapsed",
         )
     with add_col_btn:
-        if st.button("+ Add", key="add_section_btn"):
-            title_to_add = new_title.strip() if new_title else "New Section"
-            _add_section(title_to_add)
-            st.session_state["new_section_title"] = ""
-            st.rerun()
+        st.button("+ Add", key="add_section_btn", on_click=_add_section_from_input)
 
 # ── Right: Content Notes ──────────────────────────────────────────────────────
 with col_notes:

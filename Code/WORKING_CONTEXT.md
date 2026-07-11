@@ -121,6 +121,28 @@ Or via Claude Code preview: server named "Writing Workflow" on port 8502 (config
 **Session state consumed:** `st.session_state.brain_dump` (from Develop stage)
 **Session state produced:** `st.session_state.writing_plan` (list of `{"title", "bullets", "pinned_notes"}`), `st.session_state.content_notes`, `st.session_state.style_notes`
 
+**Bug fix (2026-07-11) — "+ Add" crash + broken button row:** clicking "+ Add" threw
+`StreamlitAPIException: st.session_state.new_section_title cannot be modified after the
+widget with key new_section_title is instantiated` AND the section button row rendered
+with overlapping buttons. Two independent causes:
+- **The crash** was the widget-key class that already bit `develop.py` and `draft.py`: the
+  handler cleared `st.session_state["new_section_title"] = ""` inside the `if st.button(...)`
+  block, *after* the `st.text_input` with that key was created this run. Fixed by moving the
+  append + clear into an `on_click` callback `_add_section_from_input()` (callbacks run before
+  widgets are instantiated on the rerun) — same idiom as `develop.py`'s `_submit_develop_response`.
+- **The overlapping buttons** were a *separate, pre-existing* layout bug (present on every Plan
+  render, not caused by the crash): the per-section row `st.columns([1, 9, 1, 1, 1])` gave each
+  action-button column ~19px, but the `↑`/`↓` buttons render ~40px via `ui.py`'s button padding,
+  so they overflowed and overlapped by 5–12px. Streamlit columns share equal `flex-grow`; weight
+  only sets `flex-basis`. Fixed by widening to `st.columns([2, 10, 3, 3, 3])` (~46px action
+  columns → clean 16px gaps between buttons). Layout is verified visually, not by AppTest.
+- **Checked, benign:** the dict `_add_section` appends is `{"title", "bullets"}` (no `pinned_notes`
+  key). Nothing on the Plan page reads `section["pinned_notes"]` directly, and the "Generate Draft →"
+  handler rebuilds every section *with* that key before navigating, so no `KeyError` path exists.
+- **Regression test:** `tests/test_plan_section_ops.py` drives `plan.py` headlessly via `AppTest`
+  (asserts add/reorder/delete raise no exception and preserve the str-key/int-key invariants).
+  Run: `.venv/bin/python tests/test_plan_section_ops.py` (self-running; also works under pytest).
+
 ---
 
 ---
